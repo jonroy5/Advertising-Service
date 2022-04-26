@@ -4,8 +4,11 @@ import com.amazon.ata.advertising.service.dao.ReadableDao;
 import com.amazon.ata.advertising.service.model.AdvertisementContent;
 import com.amazon.ata.advertising.service.model.EmptyGeneratedAdvertisement;
 import com.amazon.ata.advertising.service.model.GeneratedAdvertisement;
+import com.amazon.ata.advertising.service.model.RequestContext;
+import com.amazon.ata.advertising.service.targeting.TargetingEvaluator;
 import com.amazon.ata.advertising.service.targeting.TargetingGroup;
 
+import com.amazon.ata.advertising.service.targeting.predicate.TargetingPredicateResult;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -56,16 +59,26 @@ public class AdvertisementSelectionLogic {
      *     not be generated.
      */
     public GeneratedAdvertisement selectAdvertisement(String customerId, String marketplaceId) {
+        TargetingEvaluator evaluator = new TargetingEvaluator(new RequestContext(customerId, marketplaceId));
         GeneratedAdvertisement generatedAdvertisement = new EmptyGeneratedAdvertisement();
         if (StringUtils.isEmpty(marketplaceId)) {
             LOG.warn("MarketplaceId cannot be null or empty. Returning empty ad.");
         } else {
             final List<AdvertisementContent> contents = contentDao.get(marketplaceId);
-
-            if (CollectionUtils.isNotEmpty(contents)) {
-                AdvertisementContent randomAdvertisementContent = contents.get(random.nextInt(contents.size()));
+            TreeMap<Double, AdvertisementContent> map = new TreeMap<>(Comparator.reverseOrder());
+            for (AdvertisementContent content : contents) {
+                for(TargetingGroup group : targetingGroupDao.get(content.getContentId())) {
+                 if(evaluator.evaluate(group).equals(TargetingPredicateResult.TRUE))
+                 {
+                     map.put(group.getClickThroughRate(),content);
+                 }
+               }
+            }
+            if (!map.isEmpty()) {
+                AdvertisementContent randomAdvertisementContent = map.firstEntry().getValue();
                 generatedAdvertisement = new GeneratedAdvertisement(randomAdvertisementContent);
             }
+
 
         }
 

@@ -14,6 +14,8 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 /**
@@ -50,21 +52,37 @@ public class AddTargetingGroupActivity {
         LOG.info(String.format("Adding targeting predicates [%s] to content with id: %s.",
             requestedTargetingPredicates,
             contentId));
+//
+//        List<TargetingPredicate> targetingPredicates = new ArrayList<>();
+//        if (requestedTargetingPredicates != null) {
+//            for (com.amazon.ata.advertising.service.model.TargetingPredicate targetingPredicate :
+//                requestedTargetingPredicates) {
+//                TargetingPredicate predicate = TargetingPredicateTranslator.fromCoral(targetingPredicate);
+//                targetingPredicates.add(predicate);
+//            }
+//        }
+//
+//        TargetingGroup targetingGroup = targetingGroupDao.create(contentId, targetingPredicates);
 
-        List<TargetingPredicate> targetingPredicates = new ArrayList<>();
-        if (requestedTargetingPredicates != null) {
-            for (com.amazon.ata.advertising.service.model.TargetingPredicate targetingPredicate :
-                requestedTargetingPredicates) {
-                TargetingPredicate predicate = TargetingPredicateTranslator.fromCoral(targetingPredicate);
-                targetingPredicates.add(predicate);
-            }
+//        return AddTargetingGroupResponse.builder()
+//                .withTargetingGroup(TargetingGroupTranslator.toCoral(targetingGroup))
+//                .build();
+        if(request.getTargetingPredicates() != null) {
+
+            return AddTargetingGroupResponse.builder()
+                    .withTargetingGroup(TargetingGroupTranslator.toCoral(
+                            targetingGroupDao.create(request.getContentId(),
+                                    request.getTargetingPredicates().stream()
+                                            .filter(Objects::nonNull)
+                                            .map(TargetingPredicateTranslator::fromCoral)
+                                            .collect(Collectors.toList()))))
+                    .build();
         }
-
-        TargetingGroup targetingGroup = targetingGroupDao.create(contentId, targetingPredicates);
-
         return AddTargetingGroupResponse.builder()
-                .withTargetingGroup(TargetingGroupTranslator.toCoral(targetingGroup))
-                .build();
+                .withTargetingGroup(TargetingGroupTranslator.toCoral(
+                        targetingGroupDao.create(request.getContentId(), new ArrayList<>()
+                                ))).build();
+
     }
 
 }
